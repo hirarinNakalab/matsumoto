@@ -9,6 +9,7 @@ from sklearn import metrics
 import matplotlib.pyplot as plt
 
 TOPIC_DIR = './topic/'
+HOUHAN_DIR = '../houhan'
 NUCC_DIR = '../nucc'
 TOPIC_LIST = ['agreement', 'company', 'money', 'place', 'official', 'investigation']
 
@@ -177,13 +178,59 @@ def validation_roc_curve(times, topics):
 
     plt.savefig('valid_roc.png')
 
-if __name__ == "__main__":
+def define_risk_class_list():
+    HIGH = [3, 4, 5, 6, 19, 20, 21]
+    MID = [1, 2, 7, 8, 22, 23, 24]
+    LOW = [9, 10, 11, 12, 25, 26, 27]
 
-    topics = make_whole_topic_dic(TOPIC_DIR)
+    H_list = []
+    M_list = []
+    L_list = []
+    for i in HIGH:
+        H_list.append("sample{:03d}".format(int(i)))
+    for i in MID:
+        M_list.append("sample{:03d}".format(int(i)))
+    for i in LOW:
+        L_list.append("sample{:03d}".format(int(i)))
 
-    validation_roc_curve(3, topics)
+    H_list += ["sample_B", "sample_K", "sample_L"]
+    M_list += ["sample_A", "sample_C", "sample_J"]
+    L_list += ["sample_G", "sample_H", "sample_I"]
+    return H_list, M_list, L_list
+
+def middle_determination_plot(topics):
+
+    _, M_list, _ = define_risk_class_list()
+
+    labels = []
+    values = []
+
+    corpus = list(get_all_files(HOUHAN_DIR))
+    sentences = list(corpus_to_sentences(corpus, 'utf-8'))
+
+    sentence_scores = calc_topic_scores(sentences, topics)
+
+    for sentence in sentence_scores.keys():
+        print(sentence)
+        sent_dic = sentence_scores[sentence]
+        label = 1
+        for m in M_list:
+            if m in sentence:
+                label = 2
+        labels.append(label)
+        values.append(float(sent_dic['nopurpose_sc']))
+
+    plt.scatter(labels, values)
+    plt.savefig('scatter.png')
+
+    # for (l, v) in zip(labels, values):
+    #     print(l, v)
+    # y = np.array(labels)
+    # scores = np.array(values)
+    #
+    # fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
     # auc = metrics.auc(fpr, tpr)
-
+    #
     # plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
     # plt.legend()
     # plt.title('Sales Visit Detection - Receiver Operating Characteristic')
@@ -191,8 +238,51 @@ if __name__ == "__main__":
     # plt.ylabel('True Positive Rate')
     # plt.grid(True)
     # plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
-    # plt.savefig('roc2.png')
+    # plt.savefig('nopurpose.png')
 
 
-    # plt.show()
+def high_determination_plot(topics):
+
+    H_list, _, _ = define_risk_class_list()
+
+    labels = []
+    values = []
+
+    corpus = list(get_all_files(HOUHAN_DIR))
+    sentences = list(corpus_to_sentences(corpus, 'utf-8'))
+
+    sentence_scores = calc_topic_scores(sentences, topics)
+
+    for sentence in sentence_scores.keys():
+        sent_dic = sentence_scores[sentence]
+        label = 1
+        for h in H_list:
+            if h in sentence:
+                label = 2
+        labels.append(label)
+        values.append(float(sent_dic['telllie_sc']))
+
+    for (l, v) in zip(labels, values):
+        print("{}:{:.1f}".format(l, v))
+    y = np.array(labels)
+    scores = np.array(values)
+
+    fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
+    auc = metrics.auc(fpr, tpr)
+
+    plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
+    plt.legend()
+    plt.title('Sales Visit Detection - Receiver Operating Characteristic')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.grid(True)
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
+    plt.savefig('telllie.png')
+
+
+if __name__ == "__main__":
+    topics = make_whole_topic_dic(TOPIC_DIR)
+    # validation_roc_curve(3, topics)
+    middle_determination_plot(topics)
+    # high_determination_plot(topics)
 
