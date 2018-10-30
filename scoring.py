@@ -1,12 +1,15 @@
 import csv
 import os
-import sys
 import MeCab
+import numpy as np
+from scipy import interp
 from collections import Counter
 from gensim.models.doc2vec import LabeledSentence
+from sklearn import metrics
+import matplotlib.pyplot as plt
 
 TOPIC_DIR = './topic/'
-INPUT_DIR = '../train0'
+NUCC_DIR = '../nucc'
 TOPIC_LIST = ['agreement', 'company', 'money', 'place', 'official', 'investigation']
 
 
@@ -83,8 +86,8 @@ def calc_topic_scores(sentences):
         counter = Counter()
         for word in sentence.words:
             counter[word] += 1
-        scores = {}
 
+        scores = {}
         #topic score
         for topic in TOPIC_LIST:
             topic_sc = 0
@@ -105,19 +108,84 @@ def calc_topic_scores(sentences):
     return sentences_scores
 
 if __name__ == "__main__":
+    tprs = []
+    aucs = []
+    mean_fpr = np.linspace(0, 1, 100)
 
     topics = make_whole_topic_dic(TOPIC_DIR)
+    j = 0
+    for i in range(3):
+        houhan_labels = []
+        houhan_values = []
+        INPUT_DIR = '../test{:d}'.format(i)
 
-    corpus = list(get_all_files(INPUT_DIR))
-    sentences = list(corpus_to_sentences(corpus, 'utf-8'))
+        corpus = list(get_all_files(INPUT_DIR)) + list(get_all_files(NUCC_DIR))
+        sentences = list(corpus_to_sentences(corpus, 'utf-8'))
 
-    sentence_scores = calc_topic_scores(sentences)
+        sentence_scores = calc_topic_scores(sentences)
 
-    for sentence in sentence_scores.keys():
-        sent_dic = sentence_scores[sentence]
-        keys = sent_dic.keys()
-        print('{}\t\t'.format(sentence), end='\t')
-        for key in keys:
-            print('{}:{:.1f}'.format(key, float(sent_dic[key])), end='\t')
-        print()
 
+        for sentence in sentence_scores.keys():
+            sent_dic = sentence_scores[sentence]
+            keys = sent_dic.keys()
+            if 'sample' in sentence:
+                label = 1
+            else:
+                label = 2
+            houhan_labels.append(label)
+            houhan_values.append(float(sent_dic['houhan_sc']))
+            print('{}   \t\t> '.format(sentence), end='\t')
+            for key in keys:
+                print('{}:{:.1f}'.format(key, float(sent_dic[key])), end='\t')
+            print()
+
+        y = np.array(houhan_labels)
+        scores = np.array(houhan_values)
+
+        fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
+        #
+        tprs.append(interp(mean_fpr, fpr, tpr))
+        tprs[-1][0] = 0.0
+        auc = metrics.auc(fpr, tpr)
+        aucs.append(auc)
+
+        plt.plot(fpr, tpr, lw=1, alpha=0.3,
+                 label='ROC fold %d (AUC = %0.2f)' % (j, auc))
+        j += 1
+        #
+    # auc = metrics.auc(fpr, tpr)
+
+    # plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
+    # plt.legend()
+    # plt.title('Sales Visit Detection - Receiver Operating Characteristic')
+    # plt.xlabel('False Positive Rate')
+    # plt.ylabel('True Positive Rate')
+    # plt.grid(True)
+    # plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
+    # plt.savefig('roc2.png')
+
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+             label='Luck', alpha=.8)
+
+    mean_tpr = np.mean(tprs, axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = metrics.auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs)
+    plt.plot(mean_fpr, mean_tpr, color='b',
+             label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
+             lw=2, alpha=.8)
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
+                     label=r'$\pm$ 1 std. dev.')
+
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver operating characteristic Curve')
+    plt.legend(loc="lower right")
+    # plt.show()
+
+    plt.savefig('valid_roc.png')
