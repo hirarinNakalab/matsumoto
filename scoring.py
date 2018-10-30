@@ -5,10 +5,9 @@ import MeCab
 from collections import Counter
 from gensim.models.doc2vec import LabeledSentence
 
-
 TOPIC_DIR = './topic/'
 INPUT_DIR = '../train0'
-TOPIC_LIST = ['agreement', 'company', 'money', 'position', 'public', 'research']
+TOPIC_LIST = ['agreement', 'company', 'money', 'place', 'official', 'investigation']
 
 
 # 全てのテーマファイルのリストを取得
@@ -85,6 +84,7 @@ def calc_topic_scores(sentences):
         for word in sentence.words:
             counter[word] += 1
         scores = {}
+
         #topic score
         for topic in TOPIC_LIST:
             topic_sc = 0
@@ -92,7 +92,16 @@ def calc_topic_scores(sentences):
                 if key in topics[topic].keys():
                     topic_sc += float(topics[topic][key]) * int(counter[key])
             scores[topic] = topic_sc
-        sentences_scores[sentence.tags[0]] = scores
+
+        judging_sc = {}
+        #houhan score
+        judging_sc['houhan_sc'] = float(scores['money']) * float(scores['agreement'])
+        #no purpose score
+        judging_sc['nopurpose_sc'] = float(scores['company']) * (float(scores['place']) + float(scores['investigation']))
+        #tell lie score
+        judging_sc['telllie_sc'] = float(scores['official']) * (float(scores['place']) + float(scores['investigation']))
+
+        sentences_scores[sentence.tags[0]] = judging_sc
     return sentences_scores
 
 if __name__ == "__main__":
@@ -105,5 +114,10 @@ if __name__ == "__main__":
     sentence_scores = calc_topic_scores(sentences)
 
     for sentence in sentence_scores.keys():
-        print(sentence, '-->', sentence_scores[sentence])
+        sent_dic = sentence_scores[sentence]
+        keys = sent_dic.keys()
+        print('{}\t\t'.format(sentence), end='\t')
+        for key in keys:
+            print('{}:{:.1f}'.format(key, float(sent_dic[key])), end='\t')
+        print()
 
