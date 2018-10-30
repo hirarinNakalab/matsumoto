@@ -80,7 +80,7 @@ def make_whole_topic_dic(TOPIC_DIR):
     topics = {make_topic_dic(file)[0]: make_topic_dic(file)[1] for file in files}
     return topics
 
-def calc_topic_scores(sentences):
+def calc_topic_scores(sentences, topics):
     sentences_scores = {}
     for sentence in sentences:
         counter = Counter()
@@ -107,14 +107,13 @@ def calc_topic_scores(sentences):
         sentences_scores[sentence.tags[0]] = judging_sc
     return sentences_scores
 
-if __name__ == "__main__":
+def validation_roc_curve(times, topics):
     tprs = []
     aucs = []
     mean_fpr = np.linspace(0, 1, 100)
 
-    topics = make_whole_topic_dic(TOPIC_DIR)
     j = 0
-    for i in range(3):
+    for i in range(times):
         houhan_labels = []
         houhan_values = []
         INPUT_DIR = '../test{:d}'.format(i)
@@ -122,8 +121,7 @@ if __name__ == "__main__":
         corpus = list(get_all_files(INPUT_DIR)) + list(get_all_files(NUCC_DIR))
         sentences = list(corpus_to_sentences(corpus, 'utf-8'))
 
-        sentence_scores = calc_topic_scores(sentences)
-
+        sentence_scores = calc_topic_scores(sentences, topics)
 
         for sentence in sentence_scores.keys():
             sent_dic = sentence_scores[sentence]
@@ -151,18 +149,8 @@ if __name__ == "__main__":
 
         plt.plot(fpr, tpr, lw=1, alpha=0.3,
                  label='ROC fold %d (AUC = %0.2f)' % (j, auc))
+        print('\n----------------------------------------------\n')
         j += 1
-        #
-    # auc = metrics.auc(fpr, tpr)
-
-    # plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
-    # plt.legend()
-    # plt.title('Sales Visit Detection - Receiver Operating Characteristic')
-    # plt.xlabel('False Positive Rate')
-    # plt.ylabel('True Positive Rate')
-    # plt.grid(True)
-    # plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
-    # plt.savefig('roc2.png')
 
     plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
              label='Luck', alpha=.8)
@@ -186,6 +174,25 @@ if __name__ == "__main__":
     plt.ylabel('True Positive Rate')
     plt.title('Receiver operating characteristic Curve')
     plt.legend(loc="lower right")
-    # plt.show()
 
     plt.savefig('valid_roc.png')
+
+if __name__ == "__main__":
+
+    topics = make_whole_topic_dic(TOPIC_DIR)
+
+    validation_roc_curve(3, topics)
+    # auc = metrics.auc(fpr, tpr)
+
+    # plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
+    # plt.legend()
+    # plt.title('Sales Visit Detection - Receiver Operating Characteristic')
+    # plt.xlabel('False Positive Rate')
+    # plt.ylabel('True Positive Rate')
+    # plt.grid(True)
+    # plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
+    # plt.savefig('roc2.png')
+
+
+    # plt.show()
+
