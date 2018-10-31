@@ -14,7 +14,6 @@ NUCC_DIR = '../nucc'
 TOPIC_LIST = ['agreement', 'company', 'money', 'place', 'official', 'investigation']
 
 
-# 全てのテーマファイルのリストを取得
 def get_all_files(directory):
     for root, dirs, files in os.walk(directory):
         for file in files:
@@ -67,7 +66,6 @@ def split_into_words(doc, name=''):
 
     return LabeledSentence(words=words, tags=[name])
 
-# ファイルから辞書を作成
 def make_topic_dic(path):
     file_name = os.path.basename(path)
     file, ext = os.path.splitext(file_name)
@@ -141,8 +139,7 @@ def validation_roc_curve(times, topics):
         y = np.array(houhan_labels)
         scores = np.array(houhan_values)
 
-        fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
-        #
+        fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=1, drop_intermediate=False)
         tprs.append(interp(mean_fpr, fpr, tpr))
         tprs[-1][0] = 0.0
         auc = metrics.auc(fpr, tpr)
@@ -220,26 +217,20 @@ def middle_determination_plot(topics):
         labels.append(label)
         values.append(float(sent_dic['nopurpose_sc']))
 
-    plt.scatter(labels, values)
-    plt.savefig('scatter.png')
+    y = np.array(labels)
+    scores = np.array(values)
 
-    # for (l, v) in zip(labels, values):
-    #     print(l, v)
-    # y = np.array(labels)
-    # scores = np.array(values)
-    #
-    # fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
-    # auc = metrics.auc(fpr, tpr)
-    #
-    # plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
-    # plt.legend()
-    # plt.title('Sales Visit Detection - Receiver Operating Characteristic')
-    # plt.xlabel('False Positive Rate')
-    # plt.ylabel('True Positive Rate')
-    # plt.grid(True)
-    # plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
-    # plt.savefig('nopurpose.png')
+    fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
+    auc = metrics.auc(fpr, tpr)
 
+    plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
+    plt.legend()
+    plt.title('Sales Visit Detection - Receiver Operating Characteristic')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.grid(True)
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
+    plt.savefig('nopurpose.png')
 
 def high_determination_plot(topics):
 
@@ -262,8 +253,6 @@ def high_determination_plot(topics):
         labels.append(label)
         values.append(float(sent_dic['telllie_sc']))
 
-    for (l, v) in zip(labels, values):
-        print("{}:{:.1f}".format(l, v))
     y = np.array(labels)
     scores = np.array(values)
 
@@ -282,7 +271,10 @@ def high_determination_plot(topics):
 
 if __name__ == "__main__":
     topics = make_whole_topic_dic(TOPIC_DIR)
-    # validation_roc_curve(3, topics)
+    print("validation")
+    validation_roc_curve(3, topics)
+    print("middle")
     middle_determination_plot(topics)
-    # high_determination_plot(topics)
+    print("high")
+    high_determination_plot(topics)
 
