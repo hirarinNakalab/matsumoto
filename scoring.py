@@ -9,7 +9,7 @@ from sklearn import metrics
 import matplotlib.pyplot as plt
 
 TOPIC_DIR = './topic/'
-HOUHAN_DIR = '../houhan'
+HOUHAN_DIR = '../houhan_doc/train/'
 NUCC_DIR = '../nucc'
 TOPIC_LIST = ['agreement', 'company', 'money', 'place', 'official', 'investigation']
 
@@ -125,7 +125,7 @@ def validation_roc_curve(times, topics):
         for sentence in sentence_scores.keys():
             sent_dic = sentence_scores[sentence]
             keys = sent_dic.keys()
-            if 'sample' in sentence:
+            if 'test' in sentence:
                 label = 1
             else:
                 label = 2
@@ -175,106 +175,144 @@ def validation_roc_curve(times, topics):
 
     plt.savefig('valid_roc.png')
 
-def define_risk_class_list():
-    HIGH = [3, 4, 5, 6, 19, 20, 21]
-    MID = [1, 2, 7, 8, 22, 23, 24]
-    LOW = [9, 10, 11, 12, 25, 26, 27]
-
-    H_list = []
-    M_list = []
-    L_list = []
-    for i in HIGH:
-        H_list.append("sample{:03d}".format(int(i)))
-    for i in MID:
-        M_list.append("sample{:03d}".format(int(i)))
-    for i in LOW:
-        L_list.append("sample{:03d}".format(int(i)))
-
-    H_list += ["sample_B", "sample_K", "sample_L"]
-    M_list += ["sample_A", "sample_C", "sample_J"]
-    L_list += ["sample_G", "sample_H", "sample_I"]
-    return H_list, M_list, L_list
-
 def middle_determination_plot(topics):
+    tprs = []
+    aucs = []
+    mean_fpr = np.linspace(0, 1, 100)
 
-    _, M_list, _ = define_risk_class_list()
+    j = 0
+    for i in range(3):
+        TEST_PATH = '../test{:d}'.format(i)
 
-    labels = []
-    values = []
+        labels = []
+        values = []
 
-    corpus = list(get_all_files(HOUHAN_DIR))
-    sentences = list(corpus_to_sentences(corpus, 'utf-8'))
+        corpus = list(get_all_files(TEST_PATH))
+        sentences = list(corpus_to_sentences(corpus, 'utf-8'))
 
-    sentence_scores = calc_topic_scores(sentences, topics)
+        sentence_scores = calc_topic_scores(sentences, topics)
 
-    for sentence in sentence_scores.keys():
-        print(sentence)
-        sent_dic = sentence_scores[sentence]
-        label = 1
-        for m in M_list:
-            if m in sentence:
+        for sentence in sentence_scores.keys():
+            print(sentence)
+            sent_dic = sentence_scores[sentence]
+            label = 1
+            if 'middle' in sentence:
                 label = 2
-        labels.append(label)
-        values.append(float(sent_dic['nopurpose_sc']))
+            labels.append(label)
+            values.append(float(sent_dic['nopurpose_sc']))
 
-    y = np.array(labels)
-    scores = np.array(values)
+        y = np.array(labels)
+        scores = np.array(values)
 
-    fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
-    auc = metrics.auc(fpr, tpr)
+        fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
+        tprs.append(interp(mean_fpr, fpr, tpr))
+        tprs[-1][0] = 0.0
+        auc = metrics.auc(fpr, tpr)
+        aucs.append(auc)
 
-    plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
-    plt.legend()
-    plt.title('Sales Visit Detection - Receiver Operating Characteristic')
+        plt.plot(fpr, tpr, lw=1, alpha=0.3,
+                 label='ROC fold %d (AUC = %0.2f)' % (j, auc))
+        print(j)
+        j += 1
+
+
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+             label='Luck', alpha=.8)
+
+    mean_tpr = np.mean(tprs, axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = metrics.auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs)
+    plt.plot(mean_fpr, mean_tpr, color='b',
+             label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
+             lw=2, alpha=.8)
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
+                 label=r'$\pm$ 1 std. dev.')
+
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.grid(True)
-    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
-    plt.savefig('nopurpose.png')
+    plt.title('Risk Determination - Receiver operating characteristic Curve')
+    plt.legend(loc="lower right")
+
+    plt.savefig('middle.png')
 
 def high_determination_plot(topics):
+    tprs = []
+    aucs = []
+    mean_fpr = np.linspace(0, 1, 100)
 
-    H_list, _, _ = define_risk_class_list()
+    j = 0
+    for i in range(3):
+        TEST_PATH = '../test{:d}'.format(i)
 
-    labels = []
-    values = []
+        labels = []
+        values = []
 
-    corpus = list(get_all_files(HOUHAN_DIR))
-    sentences = list(corpus_to_sentences(corpus, 'utf-8'))
+        corpus = list(get_all_files(TEST_PATH))
+        sentences = list(corpus_to_sentences(corpus, 'utf-8'))
 
-    sentence_scores = calc_topic_scores(sentences, topics)
+        sentence_scores = calc_topic_scores(sentences, topics)
 
-    for sentence in sentence_scores.keys():
-        sent_dic = sentence_scores[sentence]
-        label = 1
-        for h in H_list:
-            if h in sentence:
+        for sentence in sentence_scores.keys():
+            print(sentence)
+            sent_dic = sentence_scores[sentence]
+            label = 1
+            if 'high' in sentence:
                 label = 2
-        labels.append(label)
-        values.append(float(sent_dic['telllie_sc']))
+            labels.append(label)
+            values.append(float(sent_dic['telllie_sc']))
 
-    y = np.array(labels)
-    scores = np.array(values)
+        y = np.array(labels)
+        scores = np.array(values)
 
-    fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
-    auc = metrics.auc(fpr, tpr)
+        fpr, tpr, thresholds = metrics.roc_curve(y, scores, pos_label=2, drop_intermediate=False)
+        tprs.append(interp(mean_fpr, fpr, tpr))
+        tprs[-1][0] = 0.0
+        auc = metrics.auc(fpr, tpr)
+        aucs.append(auc)
 
-    plt.plot(fpr, tpr, label='binary classification (area = %.2f)' % auc)
-    plt.legend()
-    plt.title('Sales Visit Detection - Receiver Operating Characteristic')
+        plt.plot(fpr, tpr, lw=1, alpha=0.3,
+                 label='ROC fold %d (AUC = %0.2f)' % (j, auc))
+        print(j)
+        j += 1
+
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+             label='Luck', alpha=.8)
+
+    mean_tpr = np.mean(tprs, axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = metrics.auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs)
+    plt.plot(mean_fpr, mean_tpr, color='b',
+             label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
+             lw=2, alpha=.8)
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
+                     label=r'$\pm$ 1 std. dev.')
+
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.grid(True)
-    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Luck', alpha=.8)
-    plt.savefig('telllie.png')
+    plt.title('Risk Determination - Receiver operating characteristic Curve')
+    plt.legend(loc="lower right")
+
+    plt.savefig('high.png')
 
 
 if __name__ == "__main__":
     topics = make_whole_topic_dic(TOPIC_DIR)
     print("validation")
     validation_roc_curve(3, topics)
-    print("middle")
-    middle_determination_plot(topics)
-    print("high")
-    high_determination_plot(topics)
+    # print("middle")
+    # middle_determination_plot(topics)
+    # print("high")
+    # high_determination_plot(topics)
 
